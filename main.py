@@ -1,9 +1,12 @@
 def main():
     json_paths = ["/data/control.json", "/data/unlabelled.json"]
-    data = load_data(json_paths)
-    data = scale_data(data)
-    plot_data(data)
 
+    data = load_data(json_paths)
+    scaled_data = scale_data(data)
+
+    plot_data(scaled_data)
+
+    save_data(scaled_data, "/data/scaled_data.json")
 
 def load_data(
     json_paths: list # List of paths to json files
@@ -63,8 +66,8 @@ def scale_data(
     scaled_B_heights = []
     scaled_B_volumes = []
     for peak_id, values in data.items():
-        temp = values[0] / values[2] # A_height / B_height
-        temp2 = values[1] / values[3] # A_volume / B_volume
+        temp = values[2] / values[0] # B_height / A_height
+        temp2 = values[3] / values[1] # B_volume / A_volume
         scaled_B_heights.append(temp) # Scale B_height
         scaled_B_volumes.append(temp2) # Scale B_volume
 
@@ -74,37 +77,49 @@ def scale_data(
 
     # Scale B to median
     for peak_id, values in data.items():
-        if None in values:
-            continue
-        data[peak_id][2] = values[2] * median_B_height # Scale B_height to median
-        data[peak_id][3] = values[3] * median_B_volume # Scale B_volume to median
-    
+        data[peak_id][2] = values[2] / median_B_height  # Scale B_height to match A
+        data[peak_id][3] = values[3] / median_B_volume  # Scale B_volume to match A
+        
     return data
 
 def plot_data(
     data: dict # Dict {peak_id: [A_height, A_volume, B_height, B_volume], ...}
 ):
+    import numpy as np
     import matplotlib.pyplot as plt
-    # Divide A height by B height and plot the ratios on a bar chart
-    ratios = [values[0] / values[2] for values in data.values()]
-    ratios = sorted(ratios) # Sort ratios for better visualization
-    plt.bar(range(len(ratios)), ratios)
+    # Set threshold for coloring at 90% of the peaks (temporarily)
+    threshold = np.percentile([values[2] / values[0] for values in data.values()], 10)
+
+    # Height ratios
+    height_ratios = [values[2] / values[0] for values in data.values()]  # B / A
+    colors_height = ['red' if ratio < threshold else 'green' for ratio in height_ratios]
+    plt.bar(range(len(height_ratios)), height_ratios, color=colors_height)
     plt.xlabel('Peak ID')
-    plt.ylabel('A_height / B_height')
-    plt.title('Ratio of A height to B height')
+    plt.ylabel('B_height / A_height')
+    plt.title('B Height relative to A (median normalized)')
     plt.savefig('/data/height_ratios.png')
+    plt.close()
 
-    # Divide A volume by B volume and plot the ratios on a bar chart
-    plt.figure() # Create new figure for second plot
-    ratios = [values[1] / values[3] for values in data.values()]
-    ratios = sorted(ratios) # Sort ratios for better visualization
-    plt.bar(range(len(ratios)), ratios)
+    threshold = np.percentile([values[3] / values[1] for values in data.values()], 10)
+    # Volume ratios
+    volume_ratios = [values[3] / values[1] for values in data.values()]  # B / A
+    colors_volume = ['red' if ratio < threshold else 'green' for ratio in volume_ratios]
+    plt.figure()
+    plt.bar(range(len(volume_ratios)), volume_ratios, color=colors_volume)
     plt.xlabel('Peak ID')
-    plt.ylabel('A_volume / B_volume')
-    plt.title('Ratio of A volume to B volume')
+    plt.ylabel('B_volume / A_volume')
+    plt.title('B Volume relative to A (median normalized)')
     plt.savefig('/data/volume_ratios.png')
+    plt.close()
 
-    pass
+def save_data(
+    data: dict, # Dict {peak_id: [A_height, A_volume, B_height, B_volume], ...}
+    output_path: str
+):
+    import json
+    with open(output_path, 'w') as f:
+        # Make readabkle with indent
+        json.dump(data, f, indent=1)
 
 
 if __name__ == "__main__":
