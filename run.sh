@@ -1,0 +1,1 @@
+docker build --network=host -t ccpn-analysis . && docker run --rm --volume $(pwd)/data:/data ccpn-analysis
