@@ -110,18 +110,20 @@ def plot_data_ratios(
                 if ratios[i] > cap_value:
                     ratios[i] = cap_value
 
-        colors = ['red' if r < threshold else 'yellow' if r < 0.8 else 'green' for r in ratios]
+        colors = ['red' if r < threshold else 'orange' if r < 0.8 else 'green' for r in ratios]
 
         plt.figure(figsize=(10, 6))
-        plt.bar(range(len(ratios)), ratios, color=colors)
+        plt.bar(range(len(ratios)), ratios, color=colors, width=1.0, align='center', edgecolor='none', linewidth=0)
+        plt.xlim(0, len(ratios))
+        plt.margins(x=0)
         plt.xlabel('Peak ID')
         plt.ylabel(ylabel)
         plt.title(title)
 
         red_count = colors.count('red')
-        yellow_count = colors.count('yellow')
+        orange_count = colors.count('orange')
         green_count = colors.count('green')
-        plt.text(0.5, 0.97, f'Red: {red_count}, Yellow: {yellow_count}, Green: {green_count}', ha='center', va='center', transform=plt.gca().transAxes)
+        plt.text(0.5, 0.97, f'Red: {red_count}, orange: {orange_count}, Green: {green_count}', ha='center', va='center', transform=plt.gca().transAxes)
         plt.tight_layout()
         plt.savefig(f'{output_path}.svg')
         plt.close()
@@ -138,8 +140,8 @@ def plot_data_ratios(
         data,
         num_idx=2, denom_idx=0,
         output_path='/data/height_ratios',
-        title='Unlabeled Height relative to Control Height (median normalized and outliers capped at 1)',
-        ylabel='Unlabeled height / Control height',
+        title='Phe-Reverse Labelled Height relative to Control Height (median normalized and outliers capped at 1)',
+        ylabel='Phe-Reverse Labelled height / Control height',
         cap_value=1
     )
 
@@ -147,8 +149,8 @@ def plot_data_ratios(
         data,
         num_idx=3, denom_idx=1,
         output_path='/data/volume_ratios',
-        title='Unlabeled Volume relative to Control Volume (median normalized and outliers capped at 1)',
-        ylabel='Unlabeled volume / Control volume',
+        title='Phe-Reverse Labelled Volume relative to Control Volume (median normalized and outliers capped at 1)',
+        ylabel='Phe-Reverse Labelled volume / Control volume',
         cap_value=1
     )
 
@@ -188,7 +190,7 @@ def cross_validate(
             height_data[peak_num] = ["none", 1]
         else:
             colors = [height_data[peak_num][0], volume_data[peak_num][0]]
-            if "red" and "yellow" in colors:
+            if "red" and "orange" in colors:
                 confidence = "MEDIUM"
             elif "red" in colors:
                 confidence = "HIGH"
@@ -211,8 +213,8 @@ def plot_cross_validated_data(
     height_ratios = [cross_validated_data[peak_num][0] for peak_num in peak_nums]
     volume_ratios = [cross_validated_data[peak_num][2] for peak_num in peak_nums]
 
-    # Red for HIGH, yellow for MEDIUM, grey for LOW
-    colors = ['red' if cross_validated_data[peak_num][4] == "HIGH" else 'yellow' if cross_validated_data[peak_num][4] == "MEDIUM" else 'grey' for peak_num in peak_nums]
+    # Red for HIGH, orange for MEDIUM, grey for LOW
+    colors = ['red' if cross_validated_data[peak_num][4] == "HIGH" else 'orange' if cross_validated_data[peak_num][4] == "MEDIUM" else 'grey' for peak_num in peak_nums]
 
     plt.figure(figsize=(10, 6))
     plt.scatter(height_ratios, volume_ratios, c=colors)
@@ -223,10 +225,10 @@ def plot_cross_validated_data(
     plt.ylabel('Volume Ratio')
     plt.title('Cross-Validated Height and Volume Ratios')
     red_count = colors.count('red')
-    yellow_count = colors.count('yellow')
+    orange_count = colors.count('orange')
     grey_count = colors.count('grey')
     plt.legend(handles=[plt.Line2D([0], [0], marker='o', color='w', label=f'HIGH: {red_count}', markerfacecolor='red', markersize=10),
-                        plt.Line2D([0], [0], marker='o', color='w', label=f'MEDIUM: {yellow_count}', markerfacecolor='yellow', markersize=10),
+                        plt.Line2D([0], [0], marker='o', color='w', label=f'MEDIUM: {orange_count}', markerfacecolor='orange', markersize=10),
                         plt.Line2D([0], [0], marker='o', color='w', label=f'LOW: {grey_count}', markerfacecolor='grey', markersize=10)],
                loc='upper right', title='Confidence Level')
     plt.grid()
