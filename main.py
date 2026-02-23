@@ -87,30 +87,56 @@ def plot_data(
 ):
     import numpy as np
     import matplotlib.pyplot as plt
-    # Set threshold for coloring at 90% of the peaks (temporarily)
-    threshold = np.percentile([values[2] / values[0] for values in data.values()], 10)
 
-    # Height ratios
-    height_ratios = [values[2] / values[0] for values in data.values()]  # B / A
-    colors_height = ['red' if ratio < threshold else 'green' for ratio in height_ratios]
-    plt.bar(range(len(height_ratios)), height_ratios, color=colors_height)
-    plt.xlabel('Peak ID')
-    plt.ylabel('B_height / A_height')
-    plt.title('B Height relative to A (median normalized)')
-    plt.savefig('/data/height_ratios.png')
-    plt.close()
+    # Extracted helper to avoid repetition
+    def _plot_ratio(data, num_idx, denom_idx, output_path, title, ylabel, cap_value=None):
+        # Compute ratios
+        ratios = [values[num_idx] / values[denom_idx] for values in data.values()]
 
-    threshold = np.percentile([values[3] / values[1] for values in data.values()], 10)
-    # Volume ratios
-    volume_ratios = [values[3] / values[1] for values in data.values()]  # B / A
-    colors_volume = ['red' if ratio < threshold else 'green' for ratio in volume_ratios]
-    plt.figure()
-    plt.bar(range(len(volume_ratios)), volume_ratios, color=colors_volume)
-    plt.xlabel('Peak ID')
-    plt.ylabel('B_volume / A_volume')
-    plt.title('B Volume relative to A (median normalized)')
-    plt.savefig('/data/volume_ratios.png')
-    plt.close()
+        print(np.median(ratios))
+
+        # Determine threshold as 8th lowest ratio (number of phenylalanine peaks)
+        threshold = sorted(ratios)[7] 
+
+        if cap_value is not None:
+            for i in range(len(ratios)):
+                if ratios[i] > cap_value:
+                    ratios[i] = cap_value
+
+        colors = ['red' if r < threshold else 'yellow' if r < 0.8 else 'green' for r in ratios]
+
+        plt.figure(figsize=(10, 6))
+        plt.bar(range(len(ratios)), ratios, color=colors)
+        plt.xlabel('Peak ID')
+        plt.ylabel(ylabel)
+        plt.title(title)
+
+        red_count = colors.count('red')
+        yellow_count = colors.count('yellow')
+        green_count = colors.count('green')
+        plt.text(0.5, 0.97, f'Red: {red_count}, Yellow: {yellow_count}, Green: {green_count}', ha='center', va='center', transform=plt.gca().transAxes)
+        plt.tight_layout()
+        plt.savefig(output_path)
+        plt.close()
+
+    _plot_ratio(
+        data,
+        num_idx=2, denom_idx=0,
+        output_path='/data/height_ratios.svg',
+        title='Unlabeled Height relative to Control Height (median normalized and outliers capped at 1)',
+        ylabel='Unlabeled height / Control height',
+        cap_value=1
+    )
+
+    _plot_ratio(
+        data,
+        num_idx=3, denom_idx=1,
+        output_path='/data/volume_ratios.svg',
+        title='Unlabeled Volume relative to Control Volume (median normalized and outliers capped at 1)',
+        ylabel='Unlabeled volume / Control volume',
+        cap_value=1
+    )
+
 
 def save_data(
     data: dict, # Dict {peak_id: [A_height, A_volume, B_height, B_volume], ...}
