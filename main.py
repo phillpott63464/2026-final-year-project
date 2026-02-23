@@ -4,8 +4,15 @@ def main():
     data = load_data(json_paths)
     scaled_data = scale_data(data)
 
-    plot_data(scaled_data)
+    height_data, volume_data = plot_data_ratios(scaled_data)
 
+    cross_validated_data = cross_validate(height_data, volume_data)
+
+    print(cross_validated_data)
+
+    plot_cross_validated_data(cross_validated_data)
+
+    save_data(cross_validated_data, "/data/cross_validated_data.json")
     save_data(scaled_data, "/data/scaled_data.json")
 
 def load_data(
@@ -82,9 +89,9 @@ def scale_data(
         
     return data
 
-def plot_data(
+def plot_data_ratios(
     data: dict # Dict {peak_id: [A_height, A_volume, B_height, B_volume], ...}
-):
+) -> list:
     import numpy as np
     import matplotlib.pyplot as plt
 
@@ -95,8 +102,8 @@ def plot_data(
 
         print(np.median(ratios))
 
-        # Determine threshold as 8th lowest ratio (number of phenylalanine peaks)
-        threshold = sorted(ratios)[7] 
+        # Determine threshold as 9th lowest ratio (8 phenylalanine peaks, so below the 8 lowest ratios should be red)
+        threshold = sorted(ratios)[8] 
 
         if cap_value is not None:
             for i in range(len(ratios)):
@@ -104,8 +111,6 @@ def plot_data(
                     ratios[i] = cap_value
 
         colors = ['red' if r < threshold else 'yellow' if r < 0.8 else 'green' for r in ratios]
-
-        save_color_csv(ratios, colors, f'{output_path}_colors.csv')
 
         plt.figure(figsize=(10, 6))
         plt.bar(range(len(ratios)), ratios, color=colors)
@@ -121,7 +126,15 @@ def plot_data(
         plt.savefig(f'{output_path}.svg')
         plt.close()
 
-    _plot_ratio(
+        output_data = {}
+        for color, peakid, ratio in zip(colors, data.keys(), ratios):
+            if color == 'green':
+                continue
+            output_data[peakid] = [color, ratio]
+
+        return output_data
+
+    height_data = _plot_ratio(
         data,
         num_idx=2, denom_idx=0,
         output_path='/data/height_ratios',
@@ -130,7 +143,7 @@ def plot_data(
         cap_value=1
     )
 
-    _plot_ratio(
+    volume_data = _plot_ratio(
         data,
         num_idx=3, denom_idx=1,
         output_path='/data/volume_ratios',
@@ -139,37 +152,87 @@ def plot_data(
         cap_value=1
     )
 
-def save_color_csv(
-    ratios: list, # List of ratios
-    colors: list, # List of colors corresponding to ratios
-    output_path: str
-) -> None:
-
-    output_data = ['peak number, color category, value']
-    for color, ratioidx in zip(colors, range(len(colors))):
-        if color == 'green':
-            continue
-        elif color == 'yellow':
-            colour_out = '>= 0.8'
-        elif color == 'red':
-            colour_out = 'lowest 8'
-        output_data.append((f'{ratioidx}, {colour_out}, {ratios[ratioidx]}'))
-
-    output_data = sorted(output_data[1:], key=lambda x: float(x.split(',')[2]))
-
-    with open(output_path, 'w') as f:
-        f.write('\n'.join(output_data))
-
-
+    return height_data, volume_data
 
 def save_data(
     data: dict, # Dict {peak_id: [A_height, A_volume, B_height, B_volume], ...}
     output_path: str
-):
+) -> None:
+    # Save data as json
     import json
     with open(output_path, 'w') as f:
-        # Make readabkle with indent
+        # Make readable with indent
         json.dump(data, f, indent=1)
+
+    # Also save as csv for easier manual inspection
+    import csv
+    with open(output_path.replace('.json', '.csv'), 'w', newline='') as f:
+        csv_writer = csv.writer(f)
+        csv_writer.writerow(['Peak ID', 'A Height', 'A Volume', 'B Height', 'B Volume'])
+        for peak_id, values in data.items():
+            csv_writer.writerow([peak_id] + values)
+
+def cross_validate(
+    height_data: dict, # Dict of "peak number: [color, height ratio]"
+    volume_data: dict # Dict of "peak number: [color, volume ratio]"
+) -> dict:
+    output = {} # Structure: {peak_num: "height_ratio, height_colour, volume_ratio, volume_colour, confidence"}
+
+    peaks = set(height_data.keys()).union(set(volume_data.keys()))
+    for peak_num in peaks:
+        if peak_num not in volume_data:
+            confidence = "LOW"
+            volume_data[peak_num] = ["none", 1]
+        elif peak_num not in height_data:
+            confidence = "LOW"
+            height_data[peak_num] = ["none", 1]
+        else:
+            colors = [height_data[peak_num][0], volume_data[peak_num][0]]
+            if "red" and "yellow" in colors:
+                confidence = "MEDIUM"
+            elif "red" in colors:
+                confidence = "HIGH"
+
+        output[peak_num] = [height_data[peak_num][1], height_data[peak_num][0], volume_data[peak_num][1], volume_data[peak_num][0], confidence]
+
+    # Sort output first by confidence, then by peak number
+    confidence_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+    output = dict(sorted(output.items(), key=lambda item: (confidence_order[item[1][4]], item[0])))
+
+    return output
+
+def plot_cross_validated_data(
+    cross_validated_data: dict # Dict of "peak number: [height_ratio, height_colour, volume_ratio, volume_colour, confidence]"
+) -> None:
+    import matplotlib.pyplot as plt
+
+    # Extract data for plotting
+    peak_nums = list(cross_validated_data.keys())
+    height_ratios = [cross_validated_data[peak_num][0] for peak_num in peak_nums]
+    volume_ratios = [cross_validated_data[peak_num][2] for peak_num in peak_nums]
+
+    # Red for HIGH, yellow for MEDIUM, grey for LOW
+    colors = ['red' if cross_validated_data[peak_num][4] == "HIGH" else 'yellow' if cross_validated_data[peak_num][4] == "MEDIUM" else 'grey' for peak_num in peak_nums]
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(height_ratios, volume_ratios, c=colors)
+    # Label each point with its peak number
+    for i, peak_num in enumerate(peak_nums):
+        plt.text(height_ratios[i], volume_ratios[i], str(peak_num), fontsize=8, ha='right')
+    plt.xlabel('Height Ratio')
+    plt.ylabel('Volume Ratio')
+    plt.title('Cross-Validated Height and Volume Ratios')
+    red_count = colors.count('red')
+    yellow_count = colors.count('yellow')
+    grey_count = colors.count('grey')
+    plt.legend(handles=[plt.Line2D([0], [0], marker='o', color='w', label=f'HIGH: {red_count}', markerfacecolor='red', markersize=10),
+                        plt.Line2D([0], [0], marker='o', color='w', label=f'MEDIUM: {yellow_count}', markerfacecolor='yellow', markersize=10),
+                        plt.Line2D([0], [0], marker='o', color='w', label=f'LOW: {grey_count}', markerfacecolor='grey', markersize=10)],
+               loc='upper right', title='Confidence Level')
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig('/data/cross_validated_ratios.svg')
+    plt.close()
 
 
 if __name__ == "__main__":
