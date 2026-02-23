@@ -105,6 +105,8 @@ def plot_data(
 
         colors = ['red' if r < threshold else 'yellow' if r < 0.8 else 'green' for r in ratios]
 
+        save_color_csv(ratios, colors, f'{output_path}_colors.csv')
+
         plt.figure(figsize=(10, 6))
         plt.bar(range(len(ratios)), ratios, color=colors)
         plt.xlabel('Peak ID')
@@ -116,13 +118,13 @@ def plot_data(
         green_count = colors.count('green')
         plt.text(0.5, 0.97, f'Red: {red_count}, Yellow: {yellow_count}, Green: {green_count}', ha='center', va='center', transform=plt.gca().transAxes)
         plt.tight_layout()
-        plt.savefig(output_path)
+        plt.savefig(f'{output_path}.svg')
         plt.close()
 
     _plot_ratio(
         data,
         num_idx=2, denom_idx=0,
-        output_path='/data/height_ratios.svg',
+        output_path='/data/height_ratios',
         title='Unlabeled Height relative to Control Height (median normalized and outliers capped at 1)',
         ylabel='Unlabeled height / Control height',
         cap_value=1
@@ -131,11 +133,33 @@ def plot_data(
     _plot_ratio(
         data,
         num_idx=3, denom_idx=1,
-        output_path='/data/volume_ratios.svg',
+        output_path='/data/volume_ratios',
         title='Unlabeled Volume relative to Control Volume (median normalized and outliers capped at 1)',
         ylabel='Unlabeled volume / Control volume',
         cap_value=1
     )
+
+def save_color_csv(
+    ratios: list, # List of ratios
+    colors: list, # List of colors corresponding to ratios
+    output_path: str
+) -> None:
+
+    output_data = ['peak number, color category, value']
+    for color, ratioidx in zip(colors, range(len(colors))):
+        if color == 'green':
+            continue
+        elif color == 'yellow':
+            colour_out = '>= 0.8'
+        elif color == 'red':
+            colour_out = 'lowest 8'
+        output_data.append((f'{ratioidx}, {colour_out}, {ratios[ratioidx]}'))
+
+    output_data = sorted(output_data[1:], key=lambda x: float(x.split(',')[2]))
+
+    with open(output_path, 'w') as f:
+        f.write('\n'.join(output_data))
+
 
 
 def save_data(
