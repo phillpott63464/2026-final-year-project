@@ -1,6 +1,13 @@
+import numpy as np
+
 def main():
     json_paths = ["/data/control.json", "/data/unlabelled.json"]
 
+    process_nmr_data(json_paths)
+    process_mass_spec_data(json_paths)
+
+
+def process_nmr_data(json_paths: list) -> None:
     data = load_data(json_paths)
     scaled_data = scale_data(data)
 
@@ -8,12 +15,62 @@ def main():
 
     cross_validated_data = cross_validate(height_data, volume_data)
 
-    print(cross_validated_data)
-
     plot_cross_validated_data(cross_validated_data)
 
     save_data(cross_validated_data, "/data/cross_validated_data.json")
     save_data(scaled_data, "/data/scaled_data.json")
+
+def process_mass_spec_data(json_paths: list) -> None:
+    nmr_data = load_data(json_paths)
+
+    a_heights = []
+    a_volumes = []
+    b_heights = []
+    b_volumes = []
+
+    for _, values in nmr_data.items():
+        a_heights.append(values[0])
+        b_heights.append(values[2])
+        a_volumes.append(values[1])
+        b_volumes.append(values[3])
+
+    height_ratio = sum(b_heights) / sum(a_heights)
+    volume_ratios = [x/y for x,y in zip(b_volumes, a_volumes)]
+    q1 = np.percentile(volume_ratios, 25)
+    q3 = np.percentile(volume_ratios, 75)
+    filtered = [
+        (a, b) for r, a, b in zip(volume_ratios, a_volumes, b_volumes)
+        if q1 <= r <= q3
+    ]
+
+    quartile_a_volumes = [a for a, b in filtered]
+    quartile_b_volumes = [b for a, b in filtered]
+
+    volume_ratio = sum(quartile_b_volumes) / sum(quartile_a_volumes)
+
+    mw_pcta = 29440.4
+    n_count_pcta = 357
+    n_terminal_met = 131
+
+    mass_spec_labelled_peak = 29660.4
+    mass_spec_unlabelled_peak = 29591.9
+
+    i_labelled = (mass_spec_labelled_peak - mw_pcta + n_terminal_met) / n_count_pcta
+    i_unlabelled = (mass_spec_unlabelled_peak - mw_pcta + n_terminal_met) / n_count_pcta
+
+    a_sample_concentration = 260.08 # μM but units cancel out
+    b_sample_concentration = 232.71
+
+    nmr_height_ratio = (height_ratio / a_sample_concentration) * b_sample_concentration
+    nmr_volume_ratio = (volume_ratio / a_sample_concentration) * b_sample_concentration
+
+    print(f"Labelled incorporation fraction: {i_labelled:.6f}")
+    print(f"Unlabelled incorporation fraction: {i_unlabelled:.6f}")
+    print(f"Height ratio (labelled/unlabelled): {height_ratio:.6f}")
+    print(f"Height ratio normalized to sample concentration: {nmr_height_ratio:.6f}")
+    print(f"Volume ratio (labelled/unlabelled): {volume_ratio:.6f}")
+    print(f"Volume ratio normalized to sample concentration: {nmr_volume_ratio:.6f}")
+
 
 def load_data(
     json_paths: list # List of paths to json files
@@ -99,8 +156,6 @@ def plot_data_ratios(
     def _plot_ratio(data, num_idx, denom_idx, output_path, title, ylabel, cap_value=None):
         # Compute ratios
         ratios = [values[num_idx] / values[denom_idx] for values in data.values()]
-
-        print(np.median(ratios))
 
         # Determine threshold as 9th lowest ratio (8 phenylalanine peaks, so below the 8 lowest ratios should be red)
         threshold = sorted(ratios)[8] 
