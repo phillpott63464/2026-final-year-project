@@ -1,1 +1,1 @@
-docker build --network=host -t ccpn-analysis . && docker run --rm --volume $(pwd)/data:/data ccpn-analysis
+docker build --network=host -t ccpn-analysis ./src && docker run --rm --volume $(pwd)/data:/data ccpn-analysis
