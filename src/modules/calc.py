@@ -86,6 +86,48 @@ def get_nmr_ratios(nmr_data: dict) -> (float, float):
     return height_ratio, volume_ratio
 
 
+def calculate_data_ratios(
+    data: dict,  # Dict {peak_id: [A_height, A_volume, B_height, B_volume], ...}
+) -> tuple:
+    def _calc_ratio(data, num_idx, denom_idx, cap_value=None):
+        ratios = [
+            values[num_idx] / values[denom_idx] for values in data.values()
+        ]
+
+        # Determine threshold as 9th lowest ratio (8 phenylalanine peaks, so below the 8 lowest ratios should be red)
+        threshold = sorted(ratios)[8]
+
+        if cap_value is not None:
+            capped = [min(r, cap_value) for r in ratios]
+        else:
+            capped = ratios
+
+        colors = [
+            'red' if r < threshold else 'orange' if r < 0.8 else 'green'
+            for r in capped
+        ]
+
+        full_data = {}
+        filtered_data = {}
+        for color, peakid, ratio in zip(colors, data.keys(), capped):
+            full_data[peakid] = [color, ratio]
+            if color == 'green':
+                continue
+            filtered_data[peakid] = [color, ratio]
+
+        return full_data, filtered_data
+
+    height_full, height_filtered = _calc_ratio(
+        data, num_idx=2, denom_idx=0, cap_value=1
+    )
+    volume_full, volume_filtered = _calc_ratio(
+        data, num_idx=3, denom_idx=1, cap_value=1
+    )
+
+    # Return plotting-friendly full dicts first, then filtered dicts for cross-validation
+    return height_full, volume_full, height_filtered, volume_filtered
+
+
 def scale_data(
     data: dict,  # Dict {peak_id: [A_height, A_volume, B_height, B_volume], ...}
 ) -> dict:
@@ -113,3 +155,33 @@ def scale_data(
         )  # Scale B_volume to match A
 
     return data
+
+
+def estimate_incorporation(
+    height_ratio: float, volume_ratio: float, i_a: float, i_b: float
+) -> None:
+    # We assume that peak intensity is proportional the number of nitrogens
+    # Number of nitrogens = incorporation fraction * sample concentration
+    # Therefore signal_a = concentration_a x incorporation_a, signal_b = concentration_b x incorporation_b
+    # We are calculating signal_b / signal_a
+    # This expands to (concentration_b * incorporation_b) / (concentration_a * incorporation_a)
+    # We have those values, so we can calculate expected signal ratio
+
+    c_a = 260.08   # μM but units cancel out
+    c_b = 232.71
+
+    print(f'Calculated signal ratio: {(c_b * i_b) / (c_a * i_a):.6f}')
+    print(f'height_ratio: {height_ratio:.6f}')
+    print(f'volume_ratio: {volume_ratio:.6f}')
+
+    # Not great results
+    # But we'll rearrange to estimate incorporation_b anyway
+
+    print(
+        f'Estimated incorporation fraction for unlabelled sample (height): {(height_ratio * c_a * i_a) / c_b:.6f}'
+    )
+    print(
+        f'Estimated incorporation fraction for unlabelled sample (volume): {(volume_ratio * c_a * i_a) / c_b:.6f}'
+    )
+
+    # Once again, not great

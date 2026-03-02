@@ -82,30 +82,13 @@ def plot_cross_validated_data(
 
 
 def plot_data_ratios(
-    data: dict,  # Dict {peak_id: [A_height, A_volume, B_height, B_volume], ...}
-) -> list:
-
-    # Extracted helper to avoid repetition
-    def _plot_ratio(
-        data, num_idx, denom_idx, output_path, title, ylabel, cap_value=None
-    ):
-        # Compute ratios
-        ratios = [
-            values[num_idx] / values[denom_idx] for values in data.values()
-        ]
-
-        # Determine threshold as 9th lowest ratio (8 phenylalanine peaks, so below the 8 lowest ratios should be red)
-        threshold = sorted(ratios)[8]
-
-        if cap_value is not None:
-            for i in range(len(ratios)):
-                if ratios[i] > cap_value:
-                    ratios[i] = cap_value
-
-        colors = [
-            'red' if r < threshold else 'orange' if r < 0.8 else 'green'
-            for r in ratios
-        ]
+    height_data: dict,  # Dict {peak_id: [color, ratio], ...}
+    volume_data: dict,  # Dict {peak_id: [color, ratio], ...}
+) -> None:
+    def _plot_from_dict(data, output_path, title, ylabel):
+        peak_ids = list(data.keys())
+        ratios = [data[p][1] for p in peak_ids]
+        colors = [data[p][0] for p in peak_ids]
 
         plt.figure(figsize=(10, 6))
         plt.bar(
@@ -135,35 +118,19 @@ def plot_data_ratios(
             transform=plt.gca().transAxes,
         )
         plt.tight_layout()
-        plt.savefig(f'{output_path}.svg')
+        plt.savefig(output_path)
         plt.close()
 
-        output_data = {}
-        for color, peakid, ratio in zip(colors, data.keys(), ratios):
-            if color == 'green':
-                continue
-            output_data[peakid] = [color, ratio]
-
-        return output_data
-
-    height_data = _plot_ratio(
-        data,
-        num_idx=2,
-        denom_idx=0,
-        output_path='/data/height_ratios',
-        title='Phe-Reverse Labelled Height relative to Control Height (median normalized and outliers capped at 1)',
-        ylabel='Phe-Reverse Labelled height / Control height',
-        cap_value=1,
+    _plot_from_dict(
+        height_data,
+        '/data/height_ratios.svg',
+        'Phe-Reverse Labelled Height relative to Control Height (median normalized and outliers capped at 1)',
+        'Phe-Reverse Labelled height / Control height',
     )
 
-    volume_data = _plot_ratio(
-        data,
-        num_idx=3,
-        denom_idx=1,
-        output_path='/data/volume_ratios',
-        title='Phe-Reverse Labelled Volume relative to Control Volume (median normalized and outliers capped at 1)',
-        ylabel='Phe-Reverse Labelled volume / Control volume',
-        cap_value=1,
+    _plot_from_dict(
+        volume_data,
+        '/data/volume_ratios.svg',
+        'Phe-Reverse Labelled Volume relative to Control Volume (median normalized and outliers capped at 1)',
+        'Phe-Reverse Labelled volume / Control volume',
     )
-
-    return height_data, volume_data
