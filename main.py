@@ -34,7 +34,15 @@ def process_mass_spec_data(json_paths: list) -> None:
         a_volumes.append(values[1])
         b_volumes.append(values[3])
 
-    height_ratio = sum(b_heights) / sum(a_heights)
+    height_ratios = [b / a for a, b in zip(a_heights, b_heights) if a != 0]
+    q1 = np.percentile(height_ratios, 25)
+    q3 = np.percentile(height_ratios, 75)
+    filtered = [
+        (a, b) for r, a, b in zip(height_ratios, a_heights, b_heights)
+        if q1 <= r <= q3
+    ]
+    height_ratio = np.median([b / a for a, b in filtered])
+
     volume_ratios = [x/y for x,y in zip(b_volumes, a_volumes)]
     q1 = np.percentile(volume_ratios, 25)
     q3 = np.percentile(volume_ratios, 75)
@@ -42,11 +50,7 @@ def process_mass_spec_data(json_paths: list) -> None:
         (a, b) for r, a, b in zip(volume_ratios, a_volumes, b_volumes)
         if q1 <= r <= q3
     ]
-
-    quartile_a_volumes = [a for a, b in filtered]
-    quartile_b_volumes = [b for a, b in filtered]
-
-    volume_ratio = sum(quartile_b_volumes) / sum(quartile_a_volumes)
+    volume_ratio = np.median([b / a for a, b in filtered])
 
     mw_pcta = 29440.4
     n_count_pcta = 357
@@ -61,15 +65,27 @@ def process_mass_spec_data(json_paths: list) -> None:
     a_sample_concentration = 260.08 # μM but units cancel out
     b_sample_concentration = 232.71
 
-    nmr_height_ratio = (height_ratio / a_sample_concentration) * b_sample_concentration
-    nmr_volume_ratio = (volume_ratio / a_sample_concentration) * b_sample_concentration
-
     print(f"Labelled incorporation fraction: {i_labelled:.6f}")
     print(f"Unlabelled incorporation fraction: {i_unlabelled:.6f}")
-    print(f"Height ratio (labelled/unlabelled): {height_ratio:.6f}")
-    print(f"Height ratio normalized to sample concentration: {nmr_height_ratio:.6f}")
-    print(f"Volume ratio (labelled/unlabelled): {volume_ratio:.6f}")
-    print(f"Volume ratio normalized to sample concentration: {nmr_volume_ratio:.6f}")
+
+    # We assume that peak intensity is proportional the number of nitrogens
+    # Number of nitrogens = incorporation fraction * sample concentration
+    # Therefore signal_a = concentration_a x incorporation_a, signal_b = concentration_b x incorporation_b
+    # We are calculating signal_b / signal_a
+    # This expands to (concentration_b * incorporation_b) / (concentration_a * incorporation_a)
+    # We have those values, so we can calculate expected signal ratio
+
+    print(f'Calculated signal ratio: {(b_sample_concentration * i_unlabelled) / (a_sample_concentration * i_labelled)}')
+    print(f'height_ratio: {height_ratio}')
+    print(f'volume_ratio: {volume_ratio}')
+
+    # Not great results
+    # But we'll rearrange to estimate incorporation_b anyway
+
+    print(f'Estimated incorporation fraction for unlabelled sample (height): {(height_ratio * a_sample_concentration * i_labelled) / b_sample_concentration:.6f}')
+    print(f'Estimated incorporation fraction for unlabelled sample (volume): {(volume_ratio * a_sample_concentration * i_labelled) / b_sample_concentration:.6f}')
+
+    # Once again, not great
 
 
 def load_data(
