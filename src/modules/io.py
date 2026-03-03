@@ -87,5 +87,8 @@ def save_data(
         f.write('|{a}|\n'.format(a=' | '.join(['---'] * len(keys_write))))
         for peak_id, values in data.items():
             values = [values[k] for k in keys]
+            for i in range(len(values)):
+                if isinstance(values[i], float):
+                    values[i] = f'{values[i]:.3f}'
             f.write(f'| {peak_id} | ' + ' | '.join(map(str, values)) + ' |\n')
 
