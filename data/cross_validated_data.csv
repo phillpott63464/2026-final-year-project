@@ -1,4 +1,4 @@
-Peak ID,A Height,A Volume,B Height,B Volume
+peak_id,height_ratio,height_colour,volume_ratio,volume_colour,confidence
 28,0.48019546578154865,red,0.30322305438604397,red,HIGH
 104,0.5864415007387814,red,0.6069813983162436,red,HIGH
 127,0.5632864513184365,red,0.6124094320640603,red,HIGH

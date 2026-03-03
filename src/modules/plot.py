@@ -3,24 +3,30 @@ import matplotlib.pyplot as plt
 
 
 def plot_cross_validated_data(
-    cross_validated_data: dict,  # Dict of "peak number: [height_ratio, height_colour, volume_ratio, volume_colour, confidence]"
+    cross_validated_data: dict,  # Dict of "peak number: {height_ratio: float, height_colour: str, volume_ratio: float, volume_colour: str, confidence: str}"
 ) -> None:
 
     # Extract data for plotting
     peak_nums = list(cross_validated_data.keys())
     height_ratios = [
-        cross_validated_data[peak_num][0] for peak_num in peak_nums
+        cross_validated_data[peak_num]['height_ratio'] for peak_num in peak_nums
+    ]
+    height_colours = [
+        cross_validated_data[peak_num]['height_colour'] for peak_num in peak_nums
     ]
     volume_ratios = [
-        cross_validated_data[peak_num][2] for peak_num in peak_nums
+        cross_validated_data[peak_num]['volume_ratio'] for peak_num in peak_nums
+    ]
+    volume_colours = [
+        cross_validated_data[peak_num]['volume_colour'] for peak_num in peak_nums
     ]
 
     # Red for HIGH, orange for MEDIUM, grey for LOW
     colors = [
         'red'
-        if cross_validated_data[peak_num][4] == 'HIGH'
+        if cross_validated_data[peak_num]['confidence'] == 'HIGH'
         else 'orange'
-        if cross_validated_data[peak_num][4] == 'MEDIUM'
+        if cross_validated_data[peak_num]['confidence'] == 'MEDIUM'
         else 'grey'
         for peak_num in peak_nums
     ]

@@ -6,6 +6,31 @@ def load_data(json_paths: list) -> dict:  # List of paths to json files
     return combine_data(data_list)
 
 
+def combine_data(data_list: list) -> dict:  # List of dicts
+    # Combine data from multiple dicts into one dict with structure {peak_id: {A_height: float, A_volume: float, B_height: float, B_volume: float}, ...}
+
+    data_a, data_b = data_list
+    combined_data = {}
+
+    # Output data dict structure:
+    # {peak_id: {A_height, A_volume, B_height, B_volume}, ...}
+    for peak_id in set(data_a.keys()).union(set(data_b.keys())):
+        a_height = data_a.get(peak_id)['height']
+        a_volume = data_a.get(peak_id)['volume']
+        b_height = data_b.get(peak_id)['height']
+        b_volume = data_b.get(peak_id)['volume']
+        if 'None' in [a_height, a_volume, b_height, b_volume]:
+            continue
+        combined_data[peak_id] = {
+            'A_height': float(a_height),
+            'A_volume': float(a_volume),
+            'B_height': float(b_height),
+            'B_volume': float(b_volume),
+        }
+
+    return combined_data
+
+
 def load_json(json_path: str) -> dict:
     # Load json file and return as dict
     import json
@@ -25,7 +50,7 @@ def load_json(json_path: str) -> dict:
         peak_num = row[peak_num_idx]
         height = row[height_idx]
         volume = row[volume_idx]
-        result[peak_num] = [height, volume]
+        result[peak_num] = {'height': height, 'volume': volume}
 
     return result
 
@@ -41,35 +66,26 @@ def save_data(
         # Make readable with indent
         json.dump(data, f, indent=1)
 
+    keys = list(data[list(data.keys())[0]].keys())
+    keys_write = ['peak_id'] + keys
+
     # Also save as csv for easier manual inspection
     import csv
 
     with open(output_path.replace('.json', '.csv'), 'w', newline='') as f:
         csv_writer = csv.writer(f)
         csv_writer.writerow(
-            ['Peak ID', 'A Height', 'A Volume', 'B Height', 'B Volume']
+            keys_write
         )
         for peak_id, values in data.items():
+            values = [values[k] for k in keys]
             csv_writer.writerow([peak_id] + values)
 
+    # Also save as .md table for easy porting to reports
+    with open(output_path.replace('.json', '.md'), 'w') as f:
+        f.write('|{a}|\n'.format(a=' | '.join(keys_write)))
+        f.write('|{a}|\n'.format(a=' | '.join(['---'] * len(keys_write))))
+        for peak_id, values in data.items():
+            values = [values[k] for k in keys]
+            f.write(f'| {peak_id} | ' + ' | '.join(map(str, values)) + ' |\n')
 
-def combine_data(data_list: list) -> dict:  # List of dicts
-
-    data_a, data_b = data_list
-    combined_data = {}
-
-    # Output data dict structure:
-    # {peak_id: [A_height, A_volume, B_height, B_volume], ...}
-    for peak_id in set(data_a.keys()).union(set(data_b.keys())):
-        a_height, a_volume = data_a.get(peak_id, (None, None))
-        b_height, b_volume = data_b.get(peak_id, (None, None))
-        if 'None' in [a_height, a_volume, b_height, b_volume]:
-            continue
-        combined_data[peak_id] = [
-            float(a_height),
-            float(a_volume),
-            float(b_height),
-            float(b_volume),
-        ]
-
-    return combined_data

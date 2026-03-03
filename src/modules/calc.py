@@ -24,20 +24,24 @@ def cross_validate(
             elif 'red' in colors or 'orange' in colors:
                 confidence = 'MEDIUM'
 
-        output[peak_num] = [
-            height_data[peak_num][1],
-            height_data[peak_num][0],
-            volume_data[peak_num][1],
-            volume_data[peak_num][0],
-            confidence,
-        ]
+        output[peak_num] = {
+            'height_ratio': height_data[peak_num][1],
+            'height_colour': height_data[peak_num][0],
+            'volume_ratio': volume_data[peak_num][1],
+            'volume_colour': volume_data[peak_num][0],
+            'confidence': confidence,
+        }
 
     # Sort output first by confidence, then by peak number
     confidence_order = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2}
     output = dict(
         sorted(
             output.items(),
-            key=lambda item: (confidence_order[item[1][4]], item[0]),
+            # key=lambda item: (confidence_order[item[1][4]], item[0]),
+            key=lambda item: (
+                confidence_order[item[1]['confidence']],
+                int(item[0]),
+            ),
         )
     )
 
@@ -68,10 +72,10 @@ def get_nmr_ratios(nmr_data: dict) -> (float, float):
     b_volumes = []
 
     for _, values in nmr_data.items():
-        a_heights.append(values[0])
-        b_heights.append(values[2])
-        a_volumes.append(values[1])
-        b_volumes.append(values[3])
+        a_heights.append(values['A_height'])
+        b_heights.append(values['B_height'])
+        a_volumes.append(values['A_volume'])
+        b_volumes.append(values['B_volume'])
 
     height_ratios = [b / a for a, b in zip(a_heights, b_heights) if a != 0]
     q1 = np.percentile(height_ratios, 25)
@@ -87,7 +91,7 @@ def get_nmr_ratios(nmr_data: dict) -> (float, float):
 
 
 def calculate_data_ratios(
-    data: dict,  # Dict {peak_id: [A_height, A_volume, B_height, B_volume], ...}
+    data: dict,  # Dict {peak_id: {A_height: float, A_volume: float, B_height: float, B_volume: float}, ...}
 ) -> tuple:
     def _calc_ratio(data, num_idx, denom_idx, cap_value=None):
         ratios = [
@@ -118,10 +122,10 @@ def calculate_data_ratios(
         return full_data, filtered_data
 
     height_full, height_filtered = _calc_ratio(
-        data, num_idx=2, denom_idx=0, cap_value=1
+        data, num_idx='B_height', denom_idx='A_height', cap_value=1
     )
     volume_full, volume_filtered = _calc_ratio(
-        data, num_idx=3, denom_idx=1, cap_value=1
+        data, num_idx='B_volume', denom_idx='A_volume', cap_value=1
     )
 
     # Return plotting-friendly full dicts first, then filtered dicts for cross-validation
@@ -129,15 +133,15 @@ def calculate_data_ratios(
 
 
 def scale_data(
-    data: dict,  # Dict {peak_id: [A_height, A_volume, B_height, B_volume], ...}
+    data: dict,  # Dict {peak_id: {A_height: float, A_volume: float, B_height: float, B_volume: float}, ...}
 ) -> dict:
     import numpy as np
 
     scaled_B_heights = []
     scaled_B_volumes = []
     for peak_id, values in data.items():
-        temp = values[2] / values[0]   # B_height / A_height
-        temp2 = values[3] / values[1]   # B_volume / A_volume
+        temp = values['B_height'] / values['A_height']   # B_height / A_height
+        temp2 = values['B_volume'] / values['A_volume']   # B_volume / A_volume
         scaled_B_heights.append(temp)   # Scale B_height
         scaled_B_volumes.append(temp2)   # Scale B_volume
 
@@ -147,11 +151,11 @@ def scale_data(
 
     # Scale B to median
     for peak_id, values in data.items():
-        data[peak_id][2] = (
-            values[2] / median_B_height
+        data[peak_id]['B_height'] = (
+            values['B_height'] / median_B_height
         )  # Scale B_height to match A
-        data[peak_id][3] = (
-            values[3] / median_B_volume
+        data[peak_id]['B_volume'] = (
+            values['B_volume'] / median_B_volume
         )  # Scale B_volume to match A
 
     return data
