@@ -83,7 +83,9 @@ def plot_cross_validated_data(
     )
     plt.grid()
     plt.tight_layout()
+    plt.savefig('/data/cross_validated_ratios.png', dpi=300)
     plt.savefig('/data/cross_validated_ratios.svg')
+    plt.savefig('/data/cross_validated_ratios.pdf')
     plt.close()
 
 
@@ -124,19 +126,21 @@ def plot_data_ratios(
             transform=plt.gca().transAxes,
         )
         plt.tight_layout()
-        plt.savefig(output_path)
+        plt.savefig(f'{output_path}.png', dpi=300)
+        plt.savefig(f'{output_path}.svg')
+        plt.savefig(f'{output_path}.pdf')
         plt.close()
 
     _plot_from_dict(
         height_data,
-        '/data/height_ratios.svg',
+        '/data/height_ratios',
         'Phe-Reverse Labelled Height relative to Control Height (median normalized and outliers capped at 1)',
         'Phe-Reverse Labelled height / Control height',
     )
 
     _plot_from_dict(
         volume_data,
-        '/data/volume_ratios.svg',
+        '/data/volume_ratios',
         'Phe-Reverse Labelled Volume relative to Control Volume (median normalized and outliers capped at 1)',
         'Phe-Reverse Labelled volume / Control volume',
     )

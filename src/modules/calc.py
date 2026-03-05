@@ -37,10 +37,10 @@ def cross_validate(
     output = dict(
         sorted(
             output.items(),
-            # key=lambda item: (confidence_order[item[1][4]], item[0]),
+            # Sort by confidence first, then sum of height and volume ratios
             key=lambda item: (
                 confidence_order[item[1]['confidence']],
-                int(item[0]),
+                item[1]['height_ratio'] + item[1]['volume_ratio'],
             ),
         )
     )
