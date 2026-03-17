@@ -48,7 +48,7 @@ def cross_validate(
     return output
 
 
-def get_mass_spec_incorporation_fractions() -> (float, float):
+def get_mass_spec_incorporation_fractions() -> tuple[float, float]:
     mw = 29440.4
     n_count = 357
     n_terminus = 131   # Methionine
@@ -64,7 +64,7 @@ def get_mass_spec_incorporation_fractions() -> (float, float):
     return (i_labelled, i_unlabelled)
 
 
-def get_nmr_ratios(nmr_data: dict) -> (float, float):
+def get_nmr_ratios(nmr_data: dict) -> tuple[float, float]:
 
     a_heights = []
     a_volumes = []
@@ -93,7 +93,7 @@ def get_nmr_ratios(nmr_data: dict) -> (float, float):
 def calculate_data_ratios(
     data: dict,  # Dict {peak_id: {A_height: float, A_volume: float, B_height: float, B_volume: float}, ...}
 ) -> tuple:
-    def _calc_ratio(data, num_idx, denom_idx, cap_value=None):
+    def _calc_ratio(data, num_idx, denom_idx):
         ratios = [
             values[num_idx] / values[denom_idx] for values in data.values()
         ]
@@ -101,19 +101,14 @@ def calculate_data_ratios(
         # Determine threshold as 9th lowest ratio (8 phenylalanine peaks, so below the 8 lowest ratios should be red)
         threshold = sorted(ratios)[8]
 
-        if cap_value is not None:
-            capped = [min(r, cap_value) for r in ratios]
-        else:
-            capped = ratios
-
         colors = [
             'red' if r < threshold else 'orange' if r < 0.8 else 'green'
-            for r in capped
+            for r in ratios 
         ]
 
         full_data = {}
         filtered_data = {}
-        for color, peakid, ratio in zip(colors, data.keys(), capped):
+        for color, peakid, ratio in zip(colors, data.keys(), ratios):
             full_data[peakid] = [color, ratio]
             if color == 'green':
                 continue
@@ -122,10 +117,10 @@ def calculate_data_ratios(
         return full_data, filtered_data
 
     height_full, height_filtered = _calc_ratio(
-        data, num_idx='B_height', denom_idx='A_height', cap_value=1
+        data, num_idx='B_height', denom_idx='A_height'
     )
     volume_full, volume_filtered = _calc_ratio(
-        data, num_idx='B_volume', denom_idx='A_volume', cap_value=1
+        data, num_idx='B_volume', denom_idx='A_volume'
     )
 
     # Return plotting-friendly full dicts first, then filtered dicts for cross-validation
@@ -135,8 +130,6 @@ def calculate_data_ratios(
 def scale_data(
     data: dict,  # Dict {peak_id: {A_height: float, A_volume: float, B_height: float, B_volume: float}, ...}
 ) -> dict:
-    import numpy as np
-
     scaled_B_heights = []
     scaled_B_volumes = []
     for peak_id, values in data.items():

@@ -93,7 +93,7 @@ def plot_data_ratios(
     height_data: dict,  # Dict {peak_id: [color, ratio], ...}
     volume_data: dict,  # Dict {peak_id: [color, ratio], ...}
 ) -> None:
-    def _plot_from_dict(data, output_path, title, ylabel):
+    def _plot_from_dict(data, output_path, title, ylabel, cap_value=None):
         peak_ids = list(data.keys())
         ratios = [data[p][1] for p in peak_ids]
         colors = [data[p][0] for p in peak_ids]
@@ -113,6 +113,9 @@ def plot_data_ratios(
         plt.xlabel('Peak ID')
         plt.ylabel(ylabel)
         plt.title(title)
+
+        if cap_value is not None:
+            plt.ylim(0, cap_value)
 
         red_count = colors.count('red')
         orange_count = colors.count('orange')
@@ -134,13 +137,29 @@ def plot_data_ratios(
     _plot_from_dict(
         height_data,
         '/data/height_ratios',
-        'Phe-Reverse Labelled Height relative to Control Height (median normalized and outliers capped at 1)',
+        'Phe-Reverse Labelled Height relative to Control Height (median normalized)',
         'Phe-Reverse Labelled height / Control height',
     )
 
     _plot_from_dict(
         volume_data,
         '/data/volume_ratios',
+        'Phe-Reverse Labelled Volume relative to Control Volume (median normalized)',
+        'Phe-Reverse Labelled volume / Control volume',
+    )
+
+    _plot_from_dict(
+        height_data,
+        '/data/height_ratios_capped',
+        'Phe-Reverse Labelled Height relative to Control Height (median normalized and outliers capped at 1)',
+        'Phe-Reverse Labelled height / Control height',
+        cap_value=1,
+    )
+
+    _plot_from_dict(
+        volume_data,
+        '/data/volume_ratios_capped',
         'Phe-Reverse Labelled Volume relative to Control Volume (median normalized and outliers capped at 1)',
         'Phe-Reverse Labelled volume / Control volume',
+        cap_value=1,
     )
